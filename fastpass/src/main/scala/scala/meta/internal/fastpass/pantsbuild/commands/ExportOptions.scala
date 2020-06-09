@@ -7,9 +7,10 @@ import java.nio.file.Path
 
 case class ExportOptions(
     @Description(
-      "Control sources. Use 'off' to disable downloading sources for 3rd party libraries. " +
-        "Use 'on' to download and link te sources automatically. " +
-        "Use 'on-demand' to download sources and allow linking them later."
+      "How to download and index dependency sources. " +
+        "Use '--sources=off' to disable all downloading of dependency sources. " +
+        "Use '--sources=on' to eagerly download dependency sources and eagerly index the sources in the IDE. " +
+        "Use '--sources=on-demand' to eagerly download dependency sources and lazily index the sources in the IDE."
     )
     sources: SourcesMode = SourcesMode.Default,
     @Description(

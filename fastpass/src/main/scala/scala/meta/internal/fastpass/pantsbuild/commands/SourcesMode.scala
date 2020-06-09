@@ -19,7 +19,7 @@ sealed abstract class SourcesMode(override val toString: String) {
 object SourcesMode {
   case object On extends SourcesMode("on")
   case object Off extends SourcesMode("off")
-  case object Default extends SourcesMode("default")
+  case object Default extends SourcesMode("on")
   case object OnDemand extends SourcesMode("on-demand")
 
   implicit lazy val encoder: metaconfig.ConfEncoder[SourcesMode] =
@@ -33,7 +33,7 @@ object SourcesMode {
           Conf.Bool(false) =>
         Configured.ok(Off)
       case Conf.Str(OnDemand.toString) => Configured.ok(OnDemand)
-      case Conf.Str(Default.toString) => Configured.ok(Default)
+      case Conf.Str("default") => Configured.ok(Default)
       case other =>
         Configured.error(
           s"Invalid --sources value '$other'. To fix this problem, use 'on', 'off' or 'on-demand'"
