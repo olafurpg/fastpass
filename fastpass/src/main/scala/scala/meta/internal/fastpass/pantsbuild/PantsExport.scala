@@ -7,6 +7,8 @@ import ujson.Obj
 import java.{util => ju}
 import scala.jdk.CollectionConverters._
 import java.nio.file.Path
+import ujson.Str
+import ujson.Bool
 
 case class PantsExport(
     targets: collection.Map[String, PantsTarget],
@@ -51,6 +53,7 @@ object PantsExport {
           Nil
         }
       val dependencies = directDependencies ++ syntheticDependencies
+      val javaSources = value(PantsKeys.javaSources).arr.map(_.str)
       val excludes = new ju.HashSet[String]
       for {
         exclude <- value.get(PantsKeys.excludes).iterator
@@ -91,10 +94,11 @@ object PantsExport {
       val classesDir: Path = Files.createDirectories(
         args.bloopDir.resolve(directoryName).resolve("classes")
       )
-      val target = PantsTarget(
+      val target = new PantsTarget(
         name = name,
         id = id,
         dependencies = dependencies,
+        javaSources = javaSources,
         excludes = excludes.asScala,
         platform = platform,
         libraries = libraries,
@@ -108,8 +112,12 @@ object PantsExport {
         extraJvmOptions = asStringList(value, PantsKeys.extraJvmOptions),
         directoryName = directoryName,
         classesDir = classesDir,
-        strictDeps = value.get(PantsKeys.strictDeps).map(_.bool),
-        exports = asStringList(value, PantsKeys.exports)
+        strictDeps = value.get(PantsKeys.strictDeps) match {
+          case Some(Bool(true)) => true
+          case _ => false
+        },
+        exports = asStringList(value, PantsKeys.exports),
+        scope = PantsScope.fromJson(value)
       )
       targets.put(name, target)
     }

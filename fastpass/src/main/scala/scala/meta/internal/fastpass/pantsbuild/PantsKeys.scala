@@ -5,6 +5,7 @@ object PantsKeys {
   val targets = "targets"
   val excludes = "excludes"
   val transitiveTargets = "transitive_targets"
+  val javaSources = "java_sources"
   val libraries = "libraries"
   val compileLibraries = "compile_libraries"
   val runtimeLibraries = "runtime_libraries"
@@ -28,4 +29,5 @@ object PantsKeys {
   val extraJvmOptions = "extra_jvm_options"
   val strictDeps = "strict_deps"
   val exports = "exports"
+  val scope = "scope"
 }
