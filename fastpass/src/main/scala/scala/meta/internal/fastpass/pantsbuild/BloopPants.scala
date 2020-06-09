@@ -486,7 +486,8 @@ private class BloopPants(
     val runtimeDependencies = runtime.dependencies(target)
     val compileDependencies = compile.dependencies(target)
 
-    val dependencies = runtimeDependencies.iterator.map(_.name).toList
+    val dependencies =
+      runtimeDependencies.iterator.filter(_.isTargetRoot).map(_.name).toList
 
     val runtimeLibraries = classpathLibraries(target, runtimeDependencies)
     val compileLibraries = classpathLibraries(target, compileDependencies)

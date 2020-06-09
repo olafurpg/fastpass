@@ -53,7 +53,7 @@ object PantsExport {
           Nil
         }
       val dependencies = directDependencies ++ syntheticDependencies
-      val javaSources = value(PantsKeys.javaSources).arr.map(_.str)
+      val javaSources = asStringList(value, PantsKeys.javaSources)
       val excludes = new ju.HashSet[String]
       for {
         exclude <- value.get(PantsKeys.excludes).iterator
