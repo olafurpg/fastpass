@@ -421,20 +421,30 @@ private class BloopPants(
     else if (target.globs.isEmpty) None
     else Some(List(target.globs.bloopConfig(workspace, baseDirectory)))
 
-  def getTransitiveDependencies(
-      target: PantsTarget
-  ): collection.Seq[PantsTarget] =
-    (for {
-      dependency <- target.runtimeDependencies
-      if dependency != target.name
-    } yield export.targets(dependency)).toArray[PantsTarget]
+  def getRuntimeDependencies(target: PantsTarget): Iterable[PantsTarget] = {
+    val isVisited = new mutable.LinkedHashSet[String]()
+    val result = new mutable.LinkedHashSet[PantsTarget]()
+    def visit(n: String): Unit = {
+      if (!isVisited(n)) {
+        isVisited += n
+        val target = export.targets(n)
+        // Breadth-first search.
+        target.dependencies.foreach(dep => result += export.targets(dep))
+        target.dependencies.foreach(dep => visit(dep))
+      }
+    }
+    visit(target.name)
+    result
+  }
 
-  def getDependencies(
-      target: PantsTarget,
-      transitiveDependencies: collection.Seq[PantsTarget]
-  ): collection.Seq[String] =
+  def getCompileDependencies(
+      target: PantsTarget
+  ): Iterable[PantsTarget] =
+    getRuntimeDependencies(target)
+
+  def getDependencies(target: PantsTarget): collection.Seq[String] =
     (for {
-      dependency <- transitiveDependencies.iterator
+      dependency <- target.dependencies.iterator.map(export.targets)
       // Rewrite dependencies on targets that belong to a cyclic component.
       acyclicDependencyName = cycles.acyclicDependency(dependency.name)
       if acyclicDependencyName != target.name
@@ -444,7 +454,7 @@ private class BloopPants(
 
   def classpath(
       target: PantsTarget,
-      transitiveDependencies: collection.Seq[PantsTarget],
+      transitiveDependencies: Iterable[PantsTarget],
       libraries: mutable.ArrayBuffer[PantsLibrary]
   ): List[Path] = {
     val classpathEntries = new ju.LinkedHashSet[Path]
@@ -499,9 +509,9 @@ private class BloopPants(
     val sources = getSources(target)
     val sourcesGlobs = getSourcesGlobs(target, baseDirectory)
 
-    val transitiveDependencies = getTransitiveDependencies(target)
+    val transitiveDependencies = getRuntimeDependencies(target)
 
-    val dependencies = getDependencies(target, transitiveDependencies)
+    val dependencies = getDependencies(target)
 
     val libraries = classpathLibraries(target, transitiveDependencies)
 
@@ -572,7 +582,7 @@ private class BloopPants(
   )
   def classpathLibraries(
       target: PantsTarget,
-      transitiveDependencies: collection.Seq[PantsTarget]
+      transitiveDependencies: Iterable[PantsTarget]
   ): ClasspathLibraries = {
     val compile = new mutable.ArrayBuffer[PantsLibrary]()
     val isCompileVisited = new IdentityHashSet[String]
@@ -598,8 +608,8 @@ private class BloopPants(
       }
     }
     def visitDependency(dependency: PantsTarget): Unit = {
-      visit(compile, isCompileVisited, dependency.compileLibraries)
-      visit(runtime, isRuntimeVisited, dependency.runtimeLibraries)
+      visit(compile, isCompileVisited, compileDependencies)
+      visit(runtime, isRuntimeVisited, runtimeDependencies)
     }
     visitDependency(target)
     transitiveDependencies.foreach(visitDependency)

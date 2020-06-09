@@ -21,28 +21,6 @@ case class PantsExport(
 object PantsExport {
   def fromJson(args: Export, output: ujson.Value): PantsExport = {
     val allTargets = output.obj("targets").obj
-    val transitiveDependencyCache = mutable.Map.empty[String, List[String]]
-    def computeTransitiveDependencies(name: String): List[String] = {
-      transitiveDependencyCache.getOrElseUpdate(
-        name, {
-          val isVisited = new mutable.LinkedHashSet[String]()
-          def visit(n: String): Unit = {
-            if (!isVisited(n)) {
-              isVisited += n
-              val target = allTargets(n).obj
-              for {
-                deps <- target.get(PantsKeys.targets).iterator
-                dep <- deps.arr.iterator.map(_.str)
-              } {
-                visit(dep)
-              }
-            }
-          }
-          visit(name)
-          isVisited.toList
-        }
-      )
-    }
     val targetsByDirectory = allTargets.keys.groupBy { name =>
       PantsConfiguration.baseDirectoryString(name)
     }
@@ -84,8 +62,8 @@ object PantsExport {
         platform <- value.get(PantsKeys.platform)
         javaHome <- jvmPlatforms.get(platform.str)
       } yield javaHome
-      val transitiveDependencies: Seq[String] =
-        computeTransitiveDependencies(name)
+      val libraries: mutable.ArrayBuffer[String] =
+        value(PantsKeys.libraries).arr.map(_.str.intern())
       val compileLibraries: mutable.ArrayBuffer[String] = value
         .getOrElse(PantsKeys.compileLibraries, value(PantsKeys.libraries))
         .arr
@@ -119,10 +97,7 @@ object PantsExport {
         dependencies = dependencies,
         excludes = excludes.asScala,
         platform = platform,
-        compileDependencies = transitiveDependencies,
-        runtimeDependencies = transitiveDependencies,
-        compileLibraries = compileLibraries,
-        runtimeLibraries = runtimeLibraries,
+        libraries = libraries,
         isPantsTargetRoot = isPantsTargetRoot,
         targetType = targetType,
         pantsTargetType = pantsTargetType,
