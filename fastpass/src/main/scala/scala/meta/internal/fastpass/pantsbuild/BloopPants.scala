@@ -250,7 +250,6 @@ private class BloopPants(
   def token: CancelChecker = args.token
   def workspace: Path = args.workspace
   def userTargets: List[String] = args.targets
-  def cycles: Cycles = export.cycles
 
   private val scalaCompiler = "org.scala-lang:scala-compiler:"
   private val transitiveClasspath = new ju.HashMap[String, List[Path]]().asScala
@@ -331,50 +330,12 @@ private class BloopPants(
     val allProjects = syntheticProjects ::: projects
     val byName = allProjects.map(p => p.name -> p).toMap
     allProjects.foreach { project =>
-      // NOTE(olafur): we probably want to generate projects with empty
-      // sources/classpath and single dependency on the parent.
-      if (!export.cycles.parents.contains(project.name)) {
-        val children = export.cycles.children
-          .getOrElse(project.name, Nil)
-          .flatMap(byName.get)
-        val finalProject =
-          if (children.isEmpty) project
-          else {
-            val newSources = Iterator(
-              project.sources.iterator,
-              children.iterator.flatMap(_.sources.iterator)
-            ).flatten.distinctBy(identity)
-            val newSourcesGlobs = Iterator(
-              project.sourcesGlobs.iterator.flatMap(_.iterator),
-              children.iterator.flatMap(
-                _.sourcesGlobs.iterator.flatMap(_.iterator)
-              )
-            ).flatten.distinctBy(identity)
-            val newClasspath = Iterator(
-              project.classpath.iterator,
-              children.iterator.flatMap(_.classpath.iterator)
-            ).flatten.distinctBy(identity)
-            val newDependencies = Iterator(
-              project.dependencies.iterator,
-              children.iterator.flatMap(_.dependencies.iterator)
-            ).flatten
-              .filterNot(_ == project.name)
-              .distinctBy(identity)
-            project.copy(
-              sources = newSources,
-              sourcesGlobs =
-                if (newSourcesGlobs.isEmpty) None
-                else Some(newSourcesGlobs),
-              classpath = newClasspath,
-              dependencies = newDependencies
-            )
-          }
-        val id = export.targets.get(finalProject.name).fold(project.name)(_.id)
-        val out = bloopDir.resolve(BloopPants.makeJsonFilename(id))
-        val json = C.File(BuildInfo.bloopVersion, finalProject)
-        bloop.config.write(json, out)
-        generatedProjects += out
-      }
+      val finalProject = project
+      val id = export.targets.get(finalProject.name).fold(project.name)(_.id)
+      val out = bloopDir.resolve(BloopPants.makeJsonFilename(id))
+      val json = C.File(BuildInfo.bloopVersion, finalProject)
+      bloop.config.write(json, out)
+      generatedProjects += out
     }
     cleanStaleBloopFiles(generatedProjects)
     token.checkCanceled()
@@ -481,7 +442,19 @@ private class BloopPants(
     val baseDirectory: Path = target.baseDirectory(workspace)
 
     val sources = getSources(target)
+    val javaSources = for {
+      javaSourcesName <- target.javaSources.iterator
+      sources <- getSources(export.targets(javaSourcesName))
+    } yield sources
     val sourcesGlobs = getSourcesGlobs(target, baseDirectory)
+    val javaSourcesGlobs = for {
+      javaSourcesName <- target.javaSources.iterator
+      javaSources = export.targets(javaSourcesName)
+      globs <- getSourcesGlobs(
+        javaSources,
+        javaSources.baseDirectory(workspace)
+      ).toList.flatten
+    } yield globs
 
     val runtimeDependencies = runtime.dependencies(target)
     val compileDependencies = compile.dependencies(target)
@@ -523,8 +496,8 @@ private class BloopPants(
       name = target.dependencyName,
       directory = baseDirectory,
       workspaceDir = Some(workspace),
-      sources = sources,
-      sourcesGlobs = sourcesGlobs,
+      sources = sources ++ javaSources,
+      sourcesGlobs = sourcesGlobs.map(_ ++ javaSourcesGlobs),
       sourceRoots = Some(sourceRoots),
       dependencies = dependencies,
       classpath = compileClasspath,
@@ -712,37 +685,6 @@ private class BloopPants(
         )
       )
     )
-
-  private def getTransitiveClasspath(
-      name: String,
-      byName: Map[String, C.Project]
-  ): List[Path] = {
-    def computeTransitiveClasspath(): List[Path] = {
-      val buf = mutable.Set.empty[Path]
-      buf ++= byName(name).classpath
-      byName(name).dependencies.foreach { dep =>
-        buf ++= getTransitiveClasspath(dep, byName)
-      }
-      val children = cycles.children.getOrElse(name, Nil)
-      children.foreach { child =>
-        buf ++= getTransitiveClasspath(child, byName)
-      }
-
-      // NOTE: Pants automatically includes the compiler classpath for all
-      // targets causing some targets to have an undeclared dependency on
-      // scala-compiler even if they don't compile without scala-compiler on the
-      // classpath.
-      buf ++= allScalaJars
-
-      buf.toList.sorted
-    }
-    if (isVisited(name)) {
-      transitiveClasspath.getOrElse(name, Nil)
-    } else {
-      isVisited += name
-      transitiveClasspath.getOrElseUpdate(name, computeTransitiveClasspath())
-    }
-  }
 
   private def isScalaJar(module: String): Boolean =
     module.startsWith(scalaCompiler) ||

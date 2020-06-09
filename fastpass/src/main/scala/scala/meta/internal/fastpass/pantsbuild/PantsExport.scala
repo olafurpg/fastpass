@@ -14,7 +14,6 @@ case class PantsExport(
     targets: collection.Map[String, PantsTarget],
     librariesJava: ju.HashMap[String, PantsLibrary],
     scalaPlatform: PantsScalaPlatform,
-    cycles: Cycles,
     jvmDistribution: PantsPreferredJvmDistribution
 ) {
   def libraries = librariesJava.asScala
@@ -146,7 +145,7 @@ object PantsExport {
       )
     }
 
-    val cycles = Cycles.findConnectedComponents(targets.asScala)
+    // val cycles = Cycles.findConnectedComponents(targets.asScala)
 
     val scalaPlatform = PantsScalaPlatform.fromJson(output)
 
@@ -156,7 +155,6 @@ object PantsExport {
       targets = targets.asScala,
       librariesJava = libraries,
       scalaPlatform = scalaPlatform,
-      cycles = cycles,
       jvmDistribution = jvmDistribution
     )
   }

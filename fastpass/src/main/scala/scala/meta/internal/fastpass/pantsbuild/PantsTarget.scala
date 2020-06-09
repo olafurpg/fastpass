@@ -36,6 +36,7 @@ class PantsTarget(
   def isTargetRoot: Boolean =
     isPantsTargetRoot &&
       pantsTargetType.isSupported
+  // TODO(olafur): turn into val
   def baseDirectory(workspace: Path): Path =
     PantsConfiguration
       .baseDirectory(AbsolutePath(workspace), name)
