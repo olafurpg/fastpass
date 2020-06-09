@@ -13,8 +13,8 @@ class CompileBFS(export: PantsExport) {
     } else {
       val result = new mutable.LinkedHashSet[PantsTarget]()
       result ++= target.dependencies.iterator.map(export.targets)
-      target.dependencies.foreach { name =>
-        result ++= dependencyExports(name)
+      target.dependencies.foreach { dependencyName =>
+        result ++= dependencyExports(dependencyName)
       }
       result
     }
@@ -23,7 +23,11 @@ class CompileBFS(export: PantsExport) {
     def uncached(): Iterable[PantsTarget] = {
       val result = new mutable.LinkedHashSet[PantsTarget]()
       val dep = export.targets(name)
-      dep.exports.foreach { exportName =>
+      val exports =
+        if (dep.pantsTargetType.isTarget) dep.dependencies
+        else dep.exports
+      exports.foreach { exportName =>
+        result += export.targets(exportName)
         result ++= dependencyExports(exportName)
       }
       result

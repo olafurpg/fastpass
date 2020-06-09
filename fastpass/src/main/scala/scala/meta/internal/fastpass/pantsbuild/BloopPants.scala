@@ -38,6 +38,9 @@ import scala.annotation.tailrec
 import scala.meta.internal.fastpass.MD5
 import scala.meta.internal.fastpass.FastpassLogger
 import scala.annotation.switch
+import scala.meta.io.Classpath
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.LinkOption
 
 object BloopPants {
   lazy val app: CliApp = CliApp(
@@ -214,7 +217,7 @@ object BloopPants {
   def makeClassesDirFilename(target: String): String = {
     // Prepend "z_" to separate it from the JSON files when listing the
     // `.bloop/` directory.
-    "z_" + MD5.compute(target).take(12)
+    "z_" + target
   }
 
   private val sourceRootPattern = FileSystems.getDefault.getPathMatcher(
@@ -281,6 +284,8 @@ private class BloopPants(
   private val bloopJars =
     Files.createDirectories(bloopDir.resolve("bloop-jars"))
   private val toCopyBuffer = new ju.HashMap[Path, Path]()
+  private val exportClasspaths =
+    new ju.HashMap[PantsTarget, List[Path]]().asScala
   private val jarPattern =
     FileSystems.getDefault().getPathMatcher("glob:**.jar")
   private val copiedJars = new ju.HashSet[Path]()
@@ -398,7 +403,7 @@ private class BloopPants(
       if (dependency.isTargetRoot) {
         classpathEntries.add(dependency.classesDir)
       } else {
-        // TODO(olafur): add Pants compiled binary
+        classpathEntries.addAll(toImmutableJars(dependency).asJava)
       }
     }
 
@@ -458,9 +463,16 @@ private class BloopPants(
 
     val runtimeDependencies = runtime.dependencies(target)
     val compileDependencies = compile.dependencies(target)
+    if (target.name == "finagle/finagle-serversets/src/main/java:java") {
+      pprint.log(target.strictDeps)
+      pprint.log(compileDependencies.map(_.name))
+    }
 
     val dependencies =
-      runtimeDependencies.iterator.filter(_.isTargetRoot).map(_.name).toList
+      runtimeDependencies.iterator
+        .filter(_.isTargetRoot)
+        .map(_.dependencyName)
+        .toList
 
     val runtimeLibraries = classpathLibraries(target, runtimeDependencies)
     val compileLibraries = classpathLibraries(target, compileDependencies)
@@ -583,6 +595,36 @@ private class BloopPants(
     )
   }
 
+  private def toImmutableJars(target: PantsTarget): List[Path] = {
+    exportClasspaths.getOrElseUpdate(
+      target, {
+        val classpathFile = AbsolutePath(
+          workspace
+            .resolve("dist")
+            .resolve("export-classpath")
+            .resolve(s"${target.id}-classpath.txt")
+        )
+        if (!classpathFile.isFile) {
+          Nil
+        } else {
+          val mutableClasspath = Classpath(classpathFile.readText.trim())
+          mutableClasspath.entries.zipWithIndex.flatMap {
+            case (alias, i) =>
+              val entry = alias.dealias
+              if (entry.isDirectory) {
+                List(entry.toNIO)
+              } else if (entry.isFile) {
+                List(
+                  toImmutableJar(s"${target.id}-$i.jar", entry.toNIO)
+                )
+              } else {
+                Nil
+              }
+          }
+        }
+      }
+    )
+  }
   private def toImmutableJar(library: PantsLibrary, path: Path): Path = {
     val fromCache = toCopyBuffer.get(path)
     if (fromCache != null) fromCache

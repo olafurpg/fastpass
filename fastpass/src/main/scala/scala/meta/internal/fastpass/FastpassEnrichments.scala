@@ -54,11 +54,7 @@ object FastpassEnrichments extends DecorateAsScala with DecorateAsJava {
     // Using [[Files.isSymbolicLink]] is not enough.
     // It will be false when one of the parents is a symlink (e.g. /dir/link/file.txt)
     def dealias: AbsolutePath = {
-      if (exists) { // cannot dealias non-existing path
-        AbsolutePath(path.toNIO.toRealPath())
-      } else {
-        path
-      }
+      AbsolutePath(path.toNIO.toFile().getCanonicalFile().toPath())
     }
 
     def readText: String = {
