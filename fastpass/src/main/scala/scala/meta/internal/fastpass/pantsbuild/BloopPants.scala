@@ -217,7 +217,7 @@ object BloopPants {
   def makeClassesDirFilename(target: String): String = {
     // Prepend "z_" to separate it from the JSON files when listing the
     // `.bloop/` directory.
-    "z_" + target
+    "z_" + MD5.compute(target).take(12)
   }
 
   private val sourceRootPattern = FileSystems.getDefault.getPathMatcher(
@@ -463,7 +463,10 @@ private class BloopPants(
 
     val runtimeDependencies = runtime.dependencies(target)
     val compileDependencies = compile.dependencies(target)
-    if (target.name == "finagle/finagle-serversets/src/main/java:java") {
+    if (
+      target.name == "dataproducts/billing/recurlynotifsvc/src/main/scala/com/twitter/dataproducts/billing/recurlynotifsvc/workflows:workflows"
+    ) {
+      pprint.log(target.id)
       pprint.log(target.strictDeps)
       pprint.log(compileDependencies.map(_.name))
     }
@@ -601,10 +604,11 @@ private class BloopPants(
         val classpathFile = AbsolutePath(
           workspace
             .resolve("dist")
-            .resolve("export-classpath")
+            .resolve("export-fastpass")
             .resolve(s"${target.id}-classpath.txt")
         )
         if (!classpathFile.isFile) {
+          pprint.log(classpathFile)
           Nil
         } else {
           val mutableClasspath = Classpath(classpathFile.readText.trim())

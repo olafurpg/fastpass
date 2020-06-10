@@ -27,6 +27,7 @@ class PantsTarget(
     val exports: List[String],
     val scope: PantsScope
 ) {
+  require(!classesDir.getFileName().toString().endsWith(".json"), classesDir)
   def isGeneratedTarget: Boolean = name.startsWith(".pants.d")
   private val prefixedId = id.stripPrefix(".")
   def dependencyName: String =
