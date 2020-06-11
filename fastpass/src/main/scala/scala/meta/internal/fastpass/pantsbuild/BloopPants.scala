@@ -381,11 +381,11 @@ private class BloopPants(
   def getSourcesGlobs(
       target: PantsTarget,
       baseDirectory: Path
-  ): Option[List[C.SourcesGlobs]] =
-    if (target.targetType.isResourceOrTestResource) None
-    else if (target.globs.isStatic) None
-    else if (target.globs.isEmpty) None
-    else Some(List(target.globs.bloopConfig(workspace, baseDirectory)))
+  ): List[C.SourcesGlobs] =
+    if (target.targetType.isResourceOrTestResource) Nil
+    else if (target.globs.isStatic) Nil
+    else if (target.globs.isEmpty) Nil
+    else List(target.globs.bloopConfig(workspace, baseDirectory))
 
   val runtime = new RuntimeBFS(export, RuntimeScope)
   val compile = new CompileBFS(export)
@@ -447,27 +447,29 @@ private class BloopPants(
     val baseDirectory: Path = target.baseDirectory(workspace)
 
     val sources = getSources(target)
-    val javaSources = for {
+    val javaSources = (for {
       javaSourcesName <- target.javaSources.iterator
       sources <- getSources(export.targets(javaSourcesName))
-    } yield sources
-    val sourcesGlobs = getSourcesGlobs(target, baseDirectory)
-    val javaSourcesGlobs = for {
+    } yield sources).toList
+    val targetSourcesGlobs = getSourcesGlobs(target, baseDirectory)
+    val javaSourcesGlobs = (for {
       javaSourcesName <- target.javaSources.iterator
       javaSources = export.targets(javaSourcesName)
       globs <- getSourcesGlobs(
         javaSources,
         javaSources.baseDirectory(workspace)
-      ).toList.flatten
-    } yield globs
+      )
+    } yield globs).toList
+    val sourcesGlobs =
+      Option(targetSourcesGlobs ++ javaSourcesGlobs).filter(_.nonEmpty)
 
     val runtimeDependencies = runtime.dependencies(target)
     val compileDependencies = compile.dependencies(target)
-    if (
-      target.name == "dataproducts/billing/recurlynotifsvc/src/main/scala/com/twitter/dataproducts/billing/recurlynotifsvc/client:client"
-    ) {
+    if (target.name == "asdfa") {
       pprint.log(target.id)
-      pprint.log(target.strictDeps)
+      pprint.log(target.javaSources)
+      pprint.log(javaSources)
+      pprint.log(javaSourcesGlobs)
       pprint.log(compileDependencies.map(_.name))
     }
 
@@ -512,7 +514,7 @@ private class BloopPants(
       directory = baseDirectory,
       workspaceDir = Some(workspace),
       sources = sources ++ javaSources,
-      sourcesGlobs = sourcesGlobs.map(_ ++ javaSourcesGlobs),
+      sourcesGlobs = sourcesGlobs,
       sourceRoots = Some(sourceRoots),
       dependencies = dependencies,
       classpath = compileClasspath,

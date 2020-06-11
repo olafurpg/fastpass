@@ -15,7 +15,8 @@ case class Project(
 ) {
   val fuzzyName: String = PantsConfiguration.outputFilename(name)
   def matchesName(query: String): Boolean =
-    Project.matchesFuzzyName(query, name, fuzzyName)
+    Project.matchesFuzzyName(query, name, fuzzyName) ||
+      targets == List(query)
   def bspRoot: AbsolutePath = root.bspRoot
 }
 
@@ -50,9 +51,12 @@ object Project {
       common: SharedOptions
   ): Option[Project] = {
     val fuzzyName = PantsConfiguration.outputFilename(name)
-    fromCommon(common, { candidate =>
-      matchesFuzzyName(candidate, name, fuzzyName)
-    }).headOption
+    fromCommon(
+      common,
+      { candidate =>
+        matchesFuzzyName(candidate, name, fuzzyName)
+      }
+    ).headOption
   }
   def fromCommon(
       common: SharedOptions,

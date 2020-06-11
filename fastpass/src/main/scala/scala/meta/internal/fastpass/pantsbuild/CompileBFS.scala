@@ -5,7 +5,8 @@ import bloop.config.Config.CompileSetup
 import java.{util => ju}
 
 class CompileBFS(export: PantsExport) {
-  private val exportsCache = mutable.Map.empty[String, Iterable[PantsTarget]]
+  private case class ExportKey(name: String, isDepthOne: Boolean)
+  private val exportsCache = mutable.Map.empty[ExportKey, Iterable[PantsTarget]]
   private val nonStrictDeps = new RuntimeBFS(export, CompileScope)
   private val isInProgress = new ju.ArrayDeque[String]
 
@@ -16,36 +17,42 @@ class CompileBFS(export: PantsExport) {
       val result = new mutable.LinkedHashSet[PantsTarget]()
       result ++= target.dependencies.iterator.map(export.targets)
       target.dependencies.foreach { dependencyName =>
-        result ++= dependencyExports(dependencyName)
+        result ++= dependencyExports(dependencyName, 1)
       }
       result
     }
   }
-  private def dependencyExports(name: String): Iterable[PantsTarget] = {
+
+  private def dependencyExports(
+      name: String,
+      depth: Int
+  ): Iterable[PantsTarget] = {
+
     def uncached(): Iterable[PantsTarget] = {
       val dep = export.targets(name)
       if (!dep.scope.isCompile) Nil
       else {
         val result = new mutable.LinkedHashSet[PantsTarget]()
-        val exports: Seq[PantsTarget] =
+        val exportNames: Seq[String] =
           if (dep.pantsTargetType.isTarget) {
-            dep.dependencies.map(export.targets)
+            dep.dependencies
           } else {
             for {
               dependencyName <- dep.dependencies
               if dep.exports.contains(dependencyName) ||
                 // TODO(olafur): verify that this synthetic target is derived from exported target.
                 export.targets(dependencyName).isSynthetic
-            } yield export.targets(dependencyName)
+            } yield dependencyName
           }
-        exports.foreach { export =>
-          result += export
-          result ++= dependencyExports(export.name)
+        exportNames.foreach { exportName =>
+          result += export.targets(exportName)
+          result ++= dependencyExports(exportName, depth + 1)
         }
         result
       }
     }
-    exportsCache.getOrElseUpdate(name, uncached())
+    val key = ExportKey(name, depth == 1)
+    exportsCache.getOrElseUpdate(key, uncached())
   }
 
 }
