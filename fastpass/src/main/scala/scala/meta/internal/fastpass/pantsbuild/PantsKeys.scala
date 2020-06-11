@@ -28,6 +28,7 @@ object PantsKeys {
   val javacArgs = "javac_args"
   val extraJvmOptions = "extra_jvm_options"
   val strictDeps = "strict_deps"
+  val isSynthetic = "is_synthetic"
   val exports = "exports"
   val scope = "scope"
 }

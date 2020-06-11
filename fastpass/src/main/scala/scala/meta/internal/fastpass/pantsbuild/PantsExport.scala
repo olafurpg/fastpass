@@ -111,11 +111,9 @@ object PantsExport {
         extraJvmOptions = asStringList(value, PantsKeys.extraJvmOptions),
         directoryName = directoryName,
         classesDir = classesDir,
-        strictDeps = value.get(PantsKeys.strictDeps) match {
-          case Some(Bool(true)) => true
-          case _ => false
-        },
-        exports = asStringList(value, PantsKeys.exports),
+        isSynthetic = asBoolean(value, PantsKeys.isSynthetic),
+        strictDeps = asBoolean(value, PantsKeys.strictDeps),
+        exports = asStringList(value, PantsKeys.exports).toSet,
         scope = PantsScope.fromJson(value)
       )
       targets.put(name, target)
@@ -158,6 +156,12 @@ object PantsExport {
       jvmDistribution = jvmDistribution
     )
   }
+
+  private def asBoolean(obj: Obj, key: String): Boolean =
+    obj.value.get(key) match {
+      case Some(Bool(true)) => true
+      case _ => false
+    }
 
   private def asStringList(obj: Obj, key: String): List[String] =
     obj.value.get(key) match {

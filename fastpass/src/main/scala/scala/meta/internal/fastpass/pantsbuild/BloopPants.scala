@@ -464,7 +464,7 @@ private class BloopPants(
     val runtimeDependencies = runtime.dependencies(target)
     val compileDependencies = compile.dependencies(target)
     if (
-      target.name == "dataproducts/billing/recurlynotifsvc/src/main/scala/com/twitter/dataproducts/billing/recurlynotifsvc/workflows:workflows"
+      target.name == "dataproducts/billing/recurlynotifsvc/src/main/scala/com/twitter/dataproducts/billing/recurlynotifsvc/client:client"
     ) {
       pprint.log(target.id)
       pprint.log(target.strictDeps)
@@ -608,7 +608,6 @@ private class BloopPants(
             .resolve(s"${target.id}-classpath.txt")
         )
         if (!classpathFile.isFile) {
-          pprint.log(classpathFile)
           Nil
         } else {
           val mutableClasspath = Classpath(classpathFile.readText.trim())

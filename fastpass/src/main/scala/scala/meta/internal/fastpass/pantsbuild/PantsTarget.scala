@@ -24,7 +24,8 @@ class PantsTarget(
     val directoryName: String,
     val classesDir: Path,
     val strictDeps: Boolean,
-    val exports: List[String],
+    val isSynthetic: Boolean,
+    val exports: Set[String],
     val scope: PantsScope
 ) {
   require(!classesDir.getFileName().toString().endsWith(".json"), classesDir)
