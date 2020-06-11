@@ -5,8 +5,7 @@ import bloop.config.Config.CompileSetup
 import java.{util => ju}
 
 class CompileBFS(export: PantsExport) {
-  private case class ExportKey(name: String, isDepthOne: Boolean)
-  private val exportsCache = mutable.Map.empty[ExportKey, Iterable[PantsTarget]]
+  private val exportsCache = mutable.Map.empty[String, Iterable[PantsTarget]]
   private val nonStrictDeps = new RuntimeBFS(export, CompileScope)
   private val isInProgress = new ju.ArrayDeque[String]
 
@@ -15,18 +14,17 @@ class CompileBFS(export: PantsExport) {
       nonStrictDeps.dependencies(target)
     } else {
       val result = new mutable.LinkedHashSet[PantsTarget]()
-      result ++= target.dependencies.iterator.map(export.targets)
+      val dependencies = target.dependencies.map(export.targets)
+      result ++= dependencies
       target.dependencies.foreach { dependencyName =>
-        result ++= dependencyExports(dependencyName, 1)
+        result ++= dependencyExports(dependencyName)
       }
+
       result
     }
   }
 
-  private def dependencyExports(
-      name: String,
-      depth: Int
-  ): Iterable[PantsTarget] = {
+  private def dependencyExports(name: String): Iterable[PantsTarget] = {
 
     def uncached(): Iterable[PantsTarget] = {
       val dep = export.targets(name)
@@ -40,19 +38,18 @@ class CompileBFS(export: PantsExport) {
             for {
               dependencyName <- dep.dependencies
               if dep.exports.contains(dependencyName) ||
-                // TODO(olafur): verify that this synthetic target is derived from exported target.
                 export.targets(dependencyName).isSynthetic
             } yield dependencyName
           }
         exportNames.foreach { exportName =>
           result += export.targets(exportName)
-          result ++= dependencyExports(exportName, depth + 1)
+          result ++= dependencyExports(exportName)
         }
         result
       }
     }
-    val key = ExportKey(name, depth == 1)
-    exportsCache.getOrElseUpdate(key, uncached())
+
+    exportsCache.getOrElseUpdate(name, uncached())
   }
 
 }

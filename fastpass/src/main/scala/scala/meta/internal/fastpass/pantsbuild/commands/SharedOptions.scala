@@ -9,6 +9,9 @@ import java.nio.file.Paths
 import scala.meta.io.AbsolutePath
 import metaconfig.{ConfDecoder, ConfEncoder}
 import scala.meta.internal.io.PathIO
+import scala.sys.process.ProcessLogger
+import metaconfig.cli.CliApp
+import scala.collection.mutable
 
 case class SharedOptions(
     @Description("The root directory of the Pants build.")
@@ -20,6 +23,18 @@ case class SharedOptions(
     Option(System.getenv("FASTPASS_HOME")) match {
       case Some(value) => Paths.get(value)
       case None => workspace.resolveSibling("bsp-projects")
+    }
+  }
+  def exec(command: List[String], app: CliApp): Either[Int, List[String]] = {
+    val lines = mutable.ListBuffer.empty[String]
+    app.info(command.mkString(" "))
+    val exit = scala.sys.process
+      .Process(command, cwd = Some(workspace.toFile()))
+      .!(ProcessLogger(out => lines += out, err => app.err.println(err)))
+    if (exit == 0) {
+      Right(lines.toList)
+    } else {
+      Left(exit)
     }
   }
 }

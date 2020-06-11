@@ -57,6 +57,8 @@ object BloopPants {
       SwitchCommand,
       AmendCommand,
       RemoveCommand,
+      FixCommand,
+      FixDependenciesCommand,
       TabCompleteCommand
     )
   )

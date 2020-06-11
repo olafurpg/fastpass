@@ -35,6 +35,7 @@ inThisBuild(
     licenses := Seq(
       "Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0")
     ),
+    scalaVersion := V.scala212,
     developers := List(
       Developer(
         "olafurpg",
@@ -80,7 +81,6 @@ lazy val fastpass = project
   .settings(
     organization := "org.scalameta",
     name := "fastpass",
-    scalaVersion := V.scala212,
     fork := true,
     libraryDependencies ++= Seq(
       "com.geirsson" %% "metaconfig-core" % V.metaconfig,
@@ -141,4 +141,22 @@ lazy val fastpass = project
         "-H:+ReportExceptionStackTraces"
       )
     }
+  )
+
+lazy val unusedPlugin = project
+  .in(file("unused-deps/plugin"))
+  .settings(
+    libraryDependencies ++= List(
+      "org.scala-lang" % "scala-compiler" % scalaVersion.value
+    )
+  )
+lazy val unusedInput = project
+  .in(file("unused-deps/input"))
+  .settings(
+    scalacOptions.in(Compile) ++= List[String](
+      "-Xplugin-require:unused-deps", {
+        val jar = Keys.`package`.in(unusedPlugin, Compile).value
+        s"-Xplugin:$jar"
+      }
+    )
   )
