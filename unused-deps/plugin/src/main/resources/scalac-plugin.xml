@@ -1,0 +1,4 @@
+<plugin>
+  <name>unused-deps</name>
+  <classname>fastpass.UsedDepsPlugin</classname>
+</plugin>
