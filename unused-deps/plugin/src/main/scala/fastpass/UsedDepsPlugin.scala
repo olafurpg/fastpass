@@ -85,8 +85,6 @@ trait UsedDepsPhase[G <: Global] {
         }
       }
 
-    println("HELLO")
-    println(map)
     map.foreach {
       case (k, v) =>
         println(k)

@@ -153,6 +153,10 @@ lazy val unusedPlugin = project
 lazy val unusedInput = project
   .in(file("unused-deps/input"))
   .settings(
+    addCompilerPlugin("ch.epfl.scala" %% "classpath-shrinker" % "0.1.1"),
+    libraryDependencies ++= List(
+      "com.lihaoyi" %% "pprint" % "0.5.9"
+    ),
     scalacOptions.in(Compile) ++= List[String](
       "-Xplugin-require:unused-deps", {
         val jar = Keys.`package`.in(unusedPlugin, Compile).value
