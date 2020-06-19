@@ -7,7 +7,6 @@ import ujson.Obj
 import java.{util => ju}
 import scala.jdk.CollectionConverters._
 import java.nio.file.Path
-import ujson.Str
 import ujson.Bool
 import scala.meta.io.AbsolutePath
 

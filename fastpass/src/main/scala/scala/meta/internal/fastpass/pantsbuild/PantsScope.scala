@@ -1,6 +1,5 @@
 package scala.meta.internal.fastpass.pantsbuild
 
-import ujson.Value
 import ujson.Obj
 import ujson.Str
 

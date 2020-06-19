@@ -7,7 +7,6 @@ import ujson.Arr
 import ujson.Str
 import bloop.config.{Config => C}
 import scala.meta.io.AbsolutePath
-import bloop.io.RelativePath
 
 case class PantsGlobs(
     include: List[String],

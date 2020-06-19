@@ -39,16 +39,8 @@ import scala.meta.internal.fastpass.MD5
 import scala.meta.internal.fastpass.FastpassLogger
 import scala.annotation.switch
 import scala.meta.io.Classpath
-import java.nio.file.attribute.BasicFileAttributes
-import java.nio.file.LinkOption
-import bloop.config.Config.SourcesGlobs
-import java.nio.file.SimpleFileVisitor
-import java.nio.file.FileVisitOption
-import java.nio.file.FileVisitResult
-import java.nio.file.PathMatcher
 import scala.meta.internal.io.FileIO
 import java.util.concurrent.ConcurrentHashMap
-import scala.meta.internal.io.PathIO
 
 object BloopPants {
   lazy val app: CliApp = CliApp(
@@ -431,12 +423,22 @@ private class BloopPants(
       libraries: Iterable[PantsLibrary]
   ): List[Path] = {
     val classpathEntries = new ju.LinkedHashSet[Path]
-    val result = mutable.ListBuffer.empty[Path]
+    val isInteresting =
+      target.name == "media-understanding/image-classification/integrationtest/src/test/scala/com/twitter/image_classification/integrationtest:integrationtest"
     for {
       dependency <- transitiveDependencies.iterator
     } {
       if (dependency.isModulizable) {
-        classpathEntries.add(dependency.classesDir)
+        if (isInteresting) {
+          pprint.log(dependency.name)
+          pprint.log(dependency.pantsTargetType.isResources)
+          pprint.log(dependency.pantsTargetType.isResources)
+        }
+        if (dependency.pantsTargetType.isResources) {
+          classpathEntries.add(dependency.baseDirectory)
+        } else {
+          classpathEntries.add(dependency.classesDir)
+        }
       } else {
         classpathEntries.addAll(toImmutableJars(dependency).asJava)
       }
@@ -730,6 +732,15 @@ private class BloopPants(
     } else {
       toCopyBuffer.put(path, path)
       path
+    }
+  }
+  private def generateResourceJars(): Unit = {
+    val toProcess = (for {
+      target <- export.targets.valuesIterator
+      if target.isPantsModulizable && target.pantsTargetType.isResources
+    } yield target).toIndexedSeq
+    toProcess.asJava.parallelStream().forEach { target =>
+      // target.
     }
   }
   private def copyImmutableJars(): Unit = {

@@ -7,7 +7,6 @@ import java.nio.file.PathMatcher
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
 import java.nio.file.Path
-import scala.collection.mutable
 import bloop.config.Config.SourcesGlobs
 import scala.meta.io.AbsolutePath
 import scala.meta.internal.fastpass.FastpassEnrichments._
