@@ -489,7 +489,7 @@ private class BloopPants(
           target,
           targetBase,
           target.resourcesJar,
-          isResourceInc
+          isResourceIncluded = isLarge
         )
       }
     }
