@@ -286,10 +286,8 @@ private class BloopPants(
     ).flatMap(fetchDependency)
 
   private val mutableJarsHome = workspace.resolve(".pants.d")
-  private val bloopJars =
-    Files.createDirectories(bloopDir.resolve("bloop-jars"))
-  private val internalSourcesJars =
-    Files.createDirectories(bloopDir.resolve("sources-jars"))
+  private val bloopJars = export.bloopJars
+  private val internalSourcesJars = export.internalSourcesDir
   private val toCopyBuffer = new ju.HashMap[Path, Path]()
   private val exportClasspaths =
     new ju.HashMap[PantsTarget, List[Path]]().asScala
@@ -319,6 +317,7 @@ private class BloopPants(
       }
       .toList
     copyImmutableJars()
+    generateResourceJars()
     val internalSources = generateInternalSourcesJars()
     val sourceRoots = PantsConfiguration.sourceRoots(
       AbsolutePath(workspace),
@@ -398,10 +397,11 @@ private class BloopPants(
 
   def getSourcesGlobs(
       target: PantsTarget,
-      baseDirectory: Path
+      baseDirectory: Path,
+      isResourceIncluded: Boolean
   ): Option[List[C.SourcesGlobs]] = {
     def single(t: PantsTarget, baseDir: Path): List[C.SourcesGlobs] =
-      if (t.targetType.isResourceOrTestResource) Nil
+      if (t.targetType.isResourceOrTestResource && !isResourceIncluded) Nil
       else if (t.globs.isStatic) Nil
       else if (t.globs.isEmpty) Nil
       else List(t.globs.bloopConfig(workspace, baseDir))
@@ -429,16 +429,10 @@ private class BloopPants(
       dependency <- transitiveDependencies.iterator
     } {
       if (dependency.isModulizable) {
-        if (isInteresting) {
-          pprint.log(dependency.name)
-          pprint.log(dependency.pantsTargetType.isResources)
-          pprint.log(dependency.pantsTargetType.isResources)
-        }
-        if (dependency.pantsTargetType.isResources) {
-          classpathEntries.add(dependency.baseDirectory)
-        } else {
-          classpathEntries.add(dependency.classesDir)
-        }
+        classpathEntries.add(dependency.classesDir)
+      } else if (dependency.isModulizableResource) {
+        pprint.log(dependency.resourcesJar)
+        classpathEntries.add(dependency.resourcesJar)
       } else {
         classpathEntries.addAll(toImmutableJars(dependency).asJava)
       }
@@ -467,23 +461,14 @@ private class BloopPants(
     val result = new ConcurrentHashMap[Path, Path]
     resolutionTargets.stream().parallel().forEach { target =>
       target.targetBase.foreach { targetBase =>
-        val sourceRoot = workspace.resolve(targetBase)
-        val sources = target.internalSourcesJar
-        Files.deleteIfExists(sources)
-        FileIO.withJarFileSystem(
-          AbsolutePath(sources),
-          create = true,
-          close = true
-        ) { root =>
-          val jars = new SourcesJarBuilder(export, root.toNIO)
-          val base = workspace.resolve(targetBase)
-          getSources(target)
-            .foreach(dir => jars.expandDirectory(AbsolutePath(dir), sourceRoot))
-          getSourcesGlobs(target, target.baseDirectory).iterator.flatten
-            .foreach(glob => jars.expandGlob(glob, base))
-        }
+        buildJar(
+          target,
+          targetBase,
+          target.internalSourcesJar,
+          isResourceIncluded = false
+        )
         toImmutableJars(target).headOption.foreach { default =>
-          result.put(default, sources)
+          result.put(default, target.internalSourcesJar)
         }
       }
     }
@@ -494,6 +479,45 @@ private class BloopPants(
       isExcluded = path => isGenerated(path)
     )
     result.asScala
+  }
+  private def generateResourceJars(): Unit = {
+    val toProcess =
+      export.targets.valuesIterator.filter(_.isModulizableResource).toIndexedSeq
+    toProcess.asJava.parallelStream().forEach { target =>
+      target.targetBase.foreach { targetBase =>
+        buildJar(
+          target,
+          targetBase,
+          target.resourcesJar,
+          isResourceInc
+        )
+      }
+    }
+  }
+
+  private def buildJar(
+      target: PantsTarget,
+      targetBase: String,
+      outputJarFile: Path,
+      isResourceIncluded: Boolean
+  ): Unit = {
+    val targetBasePath = AbsolutePath(workspace.resolve(targetBase))
+    Files.deleteIfExists(outputJarFile)
+    FileIO.withJarFileSystem(
+      AbsolutePath(outputJarFile),
+      create = true,
+      close = true
+    ) { root =>
+      val jars = new JarBuilder(export, root.toNIO)
+      getSources(target)
+        .foreach(dir => jars.expandDirectory(AbsolutePath(dir), targetBasePath))
+      getSourcesGlobs(
+        target,
+        target.baseDirectory,
+        isResourceIncluded
+      ).iterator.flatten
+        .foreach(glob => jars.expandGlob(glob, targetBasePath))
+    }
   }
 
   private def garbageCollectUnusedJars(
@@ -541,7 +565,8 @@ private class BloopPants(
     val baseDirectory = target.baseDirectory
 
     val sources = getSources(target)
-    val sourcesGlobs = getSourcesGlobs(target, baseDirectory)
+    val sourcesGlobs =
+      getSourcesGlobs(target, baseDirectory, isResourceIncluded = false)
 
     val runtimeDependencies = runtime.dependencies(target)
     val compileDependencies = compile.dependencies(target)
@@ -732,15 +757,6 @@ private class BloopPants(
     } else {
       toCopyBuffer.put(path, path)
       path
-    }
-  }
-  private def generateResourceJars(): Unit = {
-    val toProcess = (for {
-      target <- export.targets.valuesIterator
-      if target.isPantsModulizable && target.pantsTargetType.isResources
-    } yield target).toIndexedSeq
-    toProcess.asJava.parallelStream().forEach { target =>
-      // target.
     }
   }
   private def copyImmutableJars(): Unit = {

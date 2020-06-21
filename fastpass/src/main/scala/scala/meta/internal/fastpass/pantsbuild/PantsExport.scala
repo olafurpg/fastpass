@@ -14,6 +14,7 @@ case class PantsExport(
     targets: collection.Map[String, PantsTarget],
     librariesJava: ju.HashMap[String, PantsLibrary],
     internalSourcesDir: Path,
+    bloopJars: Path,
     scalaPlatform: PantsScalaPlatform,
     jvmDistribution: PantsPreferredJvmDistribution
 ) {
@@ -38,6 +39,8 @@ object PantsExport {
     val targets = new ju.HashMap[String, PantsTarget]
     val internalSourcesDir =
       Files.createDirectories(args.bloopDir.resolve("sources-jar"))
+    val bloopJars =
+      Files.createDirectories(args.bloopDir.resolve("bloop-jars"))
     for {
       (name, valueObj) <- allTargets.iterator
     } {
@@ -97,6 +100,7 @@ object PantsExport {
       val classesDir: Path = Files.createDirectories(
         args.bloopDir.resolve(directoryName).resolve("classes")
       )
+      val resourcesJar = bloopJars.resolve(id + ".jar")
       val internalSourcesJar = internalSourcesDir.resolve(id + "-sources.jar")
       val baseDirectory = PantsConfiguration
         .baseDirectory(AbsolutePath(args.workspace), name)
@@ -121,6 +125,7 @@ object PantsExport {
         directoryName = directoryName,
         baseDirectory = baseDirectory,
         classesDir = classesDir,
+        resourcesJar = resourcesJar,
         internalSourcesJar = internalSourcesJar,
         isSynthetic = asBoolean(value, PantsKeys.isSynthetic),
         strictDeps = asBoolean(value, PantsKeys.strictDeps),
@@ -163,6 +168,7 @@ object PantsExport {
       targets = targets.asScala,
       librariesJava = libraries,
       internalSourcesDir = internalSourcesDir,
+      bloopJars = bloopJars,
       scalaPlatform = scalaPlatform,
       jvmDistribution = jvmDistribution
     )

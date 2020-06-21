@@ -23,6 +23,7 @@ class PantsTarget(
     val directoryName: String,
     val baseDirectory: Path,
     val classesDir: Path,
+    val resourcesJar: Path,
     val internalSourcesJar: Path,
     val strictDeps: Boolean,
     val isSynthetic: Boolean,
@@ -43,6 +44,8 @@ class PantsTarget(
     if (isGeneratedTarget) prefixedId
     else name
 
+  def isModulizableResource: Boolean =
+    isPantsModulizable && pantsTargetType.isResources
   def isModulizable: Boolean =
     isPantsModulizable &&
       pantsTargetType.isSupported &&
