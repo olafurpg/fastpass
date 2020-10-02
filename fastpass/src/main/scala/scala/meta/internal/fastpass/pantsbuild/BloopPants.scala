@@ -580,6 +580,18 @@ private class BloopPants(
     val extraJvmOptions =
       if (target.targetType.isTest) target.extraJvmOptions else Nil
 
+    val allJvmOptions = mutable.ListBuffer.empty[String]
+    // The options below are added by default in "./pants test"
+    allJvmOptions += s"-Duser.dir=$workspace"
+    allJvmOptions += "-Djava.net.preferIPv4Stack=true"
+    allJvmOptions += "-Djava.awt.headless=true"
+    allJvmOptions += "-Dcom.twitter.server.wilyns.disable=true"
+    allJvmOptions += "-enableassertions"
+    if (Files.exists(Paths.get("/etc/krb5.conf"))) {
+      allJvmOptions += "-Djava.security.krb5.conf=/etc/krb5.conf"
+    }
+    allJvmOptions ++= extraJvmOptions
+
     C.Project(
       name = target.dependencyName,
       directory = baseDirectory,
@@ -600,9 +612,7 @@ private class BloopPants(
         C.Platform.Jvm(
           C.JvmConfig(
             javaHome,
-            List(
-              s"-Duser.dir=$workspace"
-            ) ++ extraJvmOptions
+            allJvmOptions.toList
           ),
           target.mainClass,
           Some(runtimeClasspath),
